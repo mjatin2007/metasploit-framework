@@ -2,7 +2,7 @@ require 'spec_helper'
 require 'msf/core/auxiliary/garak'
 
 RSpec.describe Msf::Auxiliary::Garak do
-  subject(:helper) { Msf::Auxiliary.new.extend(described_class) }
+  subject(:helper) { Msf::Auxiliary.new.extend(Msf::Auxiliary::Report, described_class) }
 
   %w[ollama ollama.OllamaGeneratorChat ollama.OllamaGenerator].each do |adapter|
     it "recognizes the Ollama adapter #{adapter}" do
@@ -187,6 +187,27 @@ RSpec.describe Msf::Auxiliary::Garak do
     expect(helper).to have_received(:print_status).with('Or run in a terminal: python3 -m garak --config /tmp/example.yaml --spec probes.test.Blank')
     expect(config).to eq(original)
   end
+
+  [
+    ['without saved probe selections', { 'plugins' => {} }, %w[--spec probes.test.Blank]],
+    ['with saved probe selections', { 'plugins' => {}, 'run' => { 'spec' => { 'include' => ['probes.test.Blank'] } } }, []]
+  ].each do |description, config, trailing_arguments|
+    it "preserves a spaced config path #{description}" do
+      path = '/tmp/garak fixtures/config.yaml'
+      messages = []
+      allow(helper).to receive(:store_loot).and_return(path)
+      allow(helper).to receive(:print_good)
+      allow(helper).to receive(:print_status) { |message| messages << message }
+
+      helper.store_garak_yaml(ip: '192.0.2.1', namespace: 'example', config: config, target_type: 'rest.RestGenerator', target_name: 'http://192.0.2.1/')
+
+      scan = messages.find { |message| message.start_with?('Use garak_scan') }.delete_prefix('Use ')
+      expect(Shellwords.split(scan)).to include("CONFIG_FILE=#{path}")
+      terminal = messages.find { |message| message.start_with?('Or run in a terminal:') }.delete_prefix('Or run in a terminal: ')
+      expect(Shellwords.split(terminal)).to eq(['python3', '-m', 'garak', '--config', path, *trailing_arguments])
+    end
+  end
+
   describe '#print_garak_scan_command' do
     it 'quotes complete scan settings and includes supplied credentials' do
       helper.datastore['PYTHON'] = '/path with spaces/python'

@@ -62,10 +62,11 @@ module Msf::Auxiliary::Garak
     python = Shellwords.escape(datastore['PYTHON'].presence || 'python3')
     print_garak_scan_command(config_path: path, target_type: target_type, target_name: target_name, probes: probes, rest_api_key: rest_api_key)
     python = "REST_API_KEY=#{Shellwords.escape(rest_api_key)} #{python}" if rest_api_key.present?
+    escaped_path = Shellwords.escape(path)
     if selections
-      print_status("Or run in a terminal: #{python} -m garak --config #{path}")
+      print_status("Or run in a terminal: #{python} -m garak --config #{escaped_path}")
     else
-      print_status("Or run in a terminal: #{python} -m garak --config #{path} --spec probes.test.Blank")
+      print_status("Or run in a terminal: #{python} -m garak --config #{escaped_path} --spec probes.test.Blank")
       print_status('This example tests connectivity only; use garak_list_probes to select security probes')
     end
     path
